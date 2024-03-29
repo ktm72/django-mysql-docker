@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  django_mysql:
+    image: mysql
+    container_name: django_mysql
+    restart: always
+    ports:
+      - "3306:3306"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./db:/var/lib/mysql
+
+  django_backend:
+    build:
+      dockerfile: Dockerfile
+      context: ./backend
+    container_name: django_backend
+    hostname: backend
+    restart: always
+    command: sh -c 'python3 manage.py migrate' \
+      gunicorn app.wsgi:application --bind 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/backend
+    depends_on:
+      - django_mysql
+    networks:
+      - proxy-network
+
+  react_frontend:
+    build:
+      dockerfile: Dockerfile
+      context: ./frontend
+    container_name: react_frontend
+    hostname: frontend
+    ports:
+      - "3000:80"
+    env_file:
+      - ./frontend/.env
+    volumes:
+      - ./frontend/dist:/react/dist
+    depends_on:
+      - django_backend
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    driver: bridge
+    name: docker_django_react
